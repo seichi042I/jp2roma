@@ -1,11 +1,13 @@
 from pathlib import Path
 from shutil import copy2
+from typing import List
 
 import customtkinter
 from CTkMessagebox import CTkMessagebox
 import romkan
 
 from jp2roma import jp2roma
+from util import get_duplicate_indexes
 
 
 class App(customtkinter.CTk):
@@ -99,7 +101,7 @@ class App(customtkinter.CTk):
         if self.input_dirpath == self.output_dirpath:
             msg = CTkMessagebox(
                 title="警告",
-                message="音声フォルダと出力先フォルダが重複しています！\n\n続行してもよろしいですか？",
+                message="音声フォルダと出力先フォルダが重複しています。\n\n続行してもよろしいですか？",
                 icon="warning",
                 option_1="続行",
                 option_2="キャンセル",
@@ -129,6 +131,39 @@ class App(customtkinter.CTk):
             sound=True
         )
         return True if msg.get() == "はい" else False
+    
+    def duplication_check(self,lst:List[str],ref_lst:List[str] = None):
+        if ref_lst is None:
+            ref_lst = lst
+        duplicate_indexes = get_duplicate_indexes(lst)
+        print(duplicate_indexes)
+        if duplicate_indexes:
+            message = "ローマ字に変換すると重複するファイル名が存在します。\n\n"
+            for i,indexes in enumerate(duplicate_indexes):
+                message += f"重複{i}:\n"
+                for i in indexes:
+                    message += f"    '{ref_lst[i]}'\n"
+            message += "\nこれらのファイルに対して、末尾に数字をつけて処理を続行しますか？\n例： eee_01.wav, eee_02.wav"
+            
+            msg = CTkMessagebox(
+                title='警告！',
+                message=message,
+                icon="warning",
+                option_1="続行",
+                option_2="キャンセル",
+                sound=True
+            )
+            
+            if msg.get() == "続行":
+                for i,indexes in enumerate(duplicate_indexes):
+                    id=1
+                    for i in indexes:
+                        lst[i] = f"{lst[i]}_{id:02}"
+                        id+=1
+            else:
+                return False
+        
+        return lst
             
     def execute(self):
         self.input_dirpath = self.input_dirpath_frame.get()
@@ -136,11 +171,17 @@ class App(customtkinter.CTk):
         
         # check and execute
         if self.path_empty_check() and self.path_exist_check() and self.path_duplicatioin_warning() and self.confirm():
-            audio_filepath_list = [file for file in self.input_dirpath.iterdir() if file.suffix == '.wav' or file.suffix == '.mp3']
             try:
+                audio_filepath_list = [file for file in self.input_dirpath.iterdir() if file.suffix == '.wav' or file.suffix == '.mp3']
                 new_stems = [jp2roma(path.stem) for path in audio_filepath_list]
-                with open(self.output_dirpath/'log.txt','w') as f:
-                    for origin,new_stem in zip(audio_filepath_list,new_stems):
+                
+                # 変換後の文字列の重複チェック
+                checked_new_stems = self.duplication_check(new_stems,ref_lst=[path.stem for path in audio_filepath_list])
+                if not checked_new_stems:
+                    return False
+                    
+                with open(self.output_dirpath/'log_utf8.txt','w', encoding='utf-8') as f:
+                    for origin,new_stem in zip(audio_filepath_list,checked_new_stems):
                         romkan_string = romkan.to_hiragana(new_stem)
                         
                         origin_padding = ''.join(['　']*(20 - len(origin.stem)))

@@ -3,6 +3,7 @@ from shutil import copy2
 
 import customtkinter
 from CTkMessagebox import CTkMessagebox
+import romkan
 
 from jp2roma import jp2roma
 
@@ -138,18 +139,30 @@ class App(customtkinter.CTk):
             audio_filepath_list = [file for file in self.input_dirpath.iterdir() if file.suffix == '.wav' or file.suffix == '.mp3']
             try:
                 new_stems = [jp2roma(path.stem) for path in audio_filepath_list]
+                with open(self.output_dirpath/'log.txt','w') as f:
+                    for origin,new_stem in zip(audio_filepath_list,new_stems):
+                        romkan_string = romkan.to_hiragana(new_stem)
+                        
+                        origin_padding = ''.join(['　']*(20 - len(origin.stem)))
+                        new_stem_padding = ''.join([' ']*(40 - len(new_stem)))
+                        romkan_padding = ''.join(['　']*(20 - len(romkan_string)))
+                        f.write(f"{origin.stem}{origin_padding} -> {new_stem}{new_stem_padding} -> {romkan_string}{romkan_padding}\n")
+                        copy2(origin.resolve(),self.output_dirpath / (new_stem+origin.suffix))
             except ValueError as e:
                 msg = CTkMessagebox(
-                    title="VelueError",
+                    title="変換に失敗しました",
                     message=e.__str__(),
                     icon='cancel',
                     sound=True
                 )
                 
             
-            for origin,new_stem in zip(audio_filepath_list,new_stems):
-                print(f"{origin} -> {new_stem}")
-                copy2(origin.resolve(),self.output_dirpath / (new_stem+origin.suffix))
+                
+            msg = CTkMessagebox(
+                title="完了！",
+                message="変換が完了しました！",
+                sound=True
+            )
                 
         else:
             return False
@@ -190,6 +203,6 @@ class PathFormFrame(customtkinter.CTkFrame):
         else:
             return ""
         
-          
-app = App()
-app.mainloop()
+if __name__ == "__main__":
+    app = App()
+    app.mainloop()

@@ -5,6 +5,16 @@ from typing import List
 from unicodedata import normalize as uni_norm
 from pathlib import Path
 
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    resource_dir = Path(sys._MEIPASS)
+else:
+    resource_dir = (Path(__file__).parent.parent / 'resource')
+
+dict_path = resource_dir / 'open_jtalk_dic_utf_8-1.11'
+
+# 環境変数'OPEN_JTALK_DICT_DIR'にresource_pathを設定
+os.environ['OPEN_JTALK_DICT_DIR'] = str(dict_path)
+
 import pyopenjtalk
 import romkan
 
@@ -84,7 +94,7 @@ def replace_cl_with_consonant(phonemes:List):
         if phoneme == 'cl':
             # 末尾の 'cl' は無視する
             if i+1 < len(phonemes):
-                replaced.append(phonemes[i+1])
+                replaced.append(phonemes[i+1][0])
         else:
             replaced.append(phoneme)
     return replaced

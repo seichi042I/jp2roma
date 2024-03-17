@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 from shutil import copy2
 from typing import List
 
@@ -19,9 +20,9 @@ class App(customtkinter.CTk):
         self.grid_columnconfigure(0,weight=1)
         
         # dirpath input form
-        self.input_dirpath_frame = PathFormFrame(self,placeholder_text="音声ファイルがあるフォルダを指定してください")
+        self.input_dirpath_frame = PathFormFrame(self,placeholder_text="音声があるフォルダを指定してください")
         self.input_dirpath_frame.grid(row=0,column=0,padx=10,pady=10,sticky="ew")
-        self.output_dirpath_frame = PathFormFrame(self,placeholder_text="出力先のフォルダをしていしてください")
+        self.output_dirpath_frame = PathFormFrame(self,placeholder_text="変換結果を保存するフォルダを指定してください")
         self.output_dirpath_frame.grid(row=1,column=0,padx=10,pady=10,sticky="ew")
         
         # init
@@ -172,8 +173,12 @@ class App(customtkinter.CTk):
         # check and execute
         if self.path_empty_check() and self.path_exist_check() and self.path_duplicatioin_warning() and self.confirm():
             try:
+                # 入力フォルダの音声ファイルをすべて取得
                 audio_filepath_list = [file for file in self.input_dirpath.iterdir() if file.suffix == '.wav' or file.suffix == '.mp3']
-                new_stems = [jp2roma(path.stem) for path in audio_filepath_list]
+                
+                # 日本語音声ファイル名をローマ字に変換
+                pattern = re.compile(r".*(_\d+)$")
+                new_stems = [jp2roma(path.stem) if not (match := pattern.match(path.stem)) else jp2roma(path.stem)+match.group(1) for path in audio_filepath_list]
                 
                 # 変換後の文字列の重複チェック
                 checked_new_stems = self.duplication_check(new_stems,ref_lst=[path.stem for path in audio_filepath_list])
